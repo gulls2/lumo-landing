@@ -1,15 +1,17 @@
 ---
 name: create-pr
-description: 현재 브랜치의 변경사항을 분석해 GitHub Pull Request를 생성한다. 프로젝트 성격에 따라 영문 또는 한국어 PR 템플릿을 선택한다. "PR 만들어줘", "PR 생성", "풀리퀘스트 올려줘", "pull request 열어줘", "create a PR" 처럼 PR 생성을 요청하면 반드시 이 스킬을 사용한다. 커밋 직후 "이제 올려줘"처럼 PR을 암시하는 요청에도 사용한다.
+description: 현재 브랜치의 변경사항을 분석해 GitHub Pull Request를 생성한다. 현재 프로젝트(lumo-landing)는 한국어, 그 외 프로젝트는 영문 PR 템플릿을 사용한다. "PR 만들어줘", "PR 생성", "풀리퀘스트 올려줘", "pull request 열어줘", "create a PR" 처럼 PR 생성을 요청하면 반드시 이 스킬을 사용한다. 커밋 직후 "이제 올려줘"처럼 PR을 암시하는 요청에도 사용한다.
 context: fork
-argument-hint: "[base 브랜치] [--draft] [--lang en|ko]"
+argument-hint: "[base 브랜치] [--repo 경로] [--draft] [--lang en|ko]"
 ---
 
 # create-pr
 
 현재 브랜치를 base 브랜치로 향하는 PR로 만든다. 이 스킬은 `context: fork`로 실행되어 **서브 에이전트가 대화 맥락 없이** 동작한다. 필요한 정보는 전부 git과 저장소에서 직접 수집한다. 사용자에게 되묻지 말고 아래 규칙대로 판단한다.
 
-인자(`$ARGUMENTS`): base 브랜치 이름, `--draft`, `--lang en|ko`를 받을 수 있다. 없으면 기본값을 쓴다.
+인자(`$ARGUMENTS`): base 브랜치 이름, `--repo <경로>`, `--draft`, `--lang en|ko`를 받을 수 있다. 없으면 기본값을 쓴다.
+
+**작업 저장소**: fork된 서브 에이전트는 호출한 쪽의 작업 디렉터리를 물려받지 못할 수 있다. 그래서 `--repo <경로>`가 있으면 가장 먼저 그 경로로 `cd`하고 이후 모든 git·gh 명령을 거기서 실행한다. 한 디렉터리 안에 저장소가 여러 개(중첩 저장소)일 수 있으니, 경로가 없으면 현재 디렉터리의 저장소를 쓰되 최종 보고에 어느 저장소(`nameWithOwner`)에서 작업했는지 반드시 적는다.
 
 ## 1. 사전 점검
 
@@ -33,19 +35,15 @@ argument-hint: "[base 브랜치] [--draft] [--lang en|ko]"
 
 **저장소 자체 템플릿이 최우선이다.** `.github/pull_request_template.md`, `.github/PULL_REQUEST_TEMPLATE.md`, `docs/pull_request_template.md`, 루트의 `pull_request_template.md`가 있으면 그것을 그대로 채운다. 이 경우 아래 두 템플릿은 쓰지 않는다. 팀이 정한 형식을 어기면 CI나 리뷰 규칙과 충돌할 수 있기 때문이다.
 
-자체 템플릿이 없으면 언어를 정한다. `--lang` 인자가 있으면 그대로 따르고, 없으면 아래 신호를 **위에서부터** 보고 처음 확실한 신호로 결정한다.
+자체 템플릿이 없으면 언어를 정한다. 규칙은 단순하다: **현재 프로젝트는 한국어, 그 외 모든 프로젝트는 영어.**
 
-| 순서 | 신호 | 판정 |
-|------|------|------|
-| 1 | `CLAUDE.md`·`AGENTS.md`·`CONTRIBUTING.md`에 PR/커밋 언어 규정이 있음 | 규정을 따른다 |
-| 2 | 최근 PR 제목·본문(`gh pr list --state all --limit 10 --json title,body`)의 언어 | 다수 언어를 따른다 |
-| 3 | 최근 커밋 메시지(`git log -n 20 --format=%s`)의 언어 | 다수 언어를 따른다 |
-| 4 | `README.md`의 주 언어, `lang="ko"` 등 프로젝트 로케일 | 그 언어를 따른다 |
-| 5 | 저장소 소유자가 한국 조직·개인으로 보이는 경우(README·문서에 한국어) | 한국어 |
+- `--lang en|ko` 인자가 있으면 그대로 따른다.
+- 인자가 없으면 `gh repo view --json nameWithOwner -q .nameWithOwner`(실패하면 `git remote get-url origin`)로 저장소를 식별한다.
+  - `gulls2/lumo-landing` → 한국어: `references/template-ko.md`
+  - 그 외 모든 저장소 → 영어: `references/template-en.md`
+- 저장소를 식별할 수 없으면 영어를 쓴다.
 
-- 한국어 프로젝트 → `references/template-ko.md`
-- 해외 오픈소스 등 영어 프로젝트 → `references/template-en.md`
-- 신호가 서로 엇갈리거나 하나도 없으면 영문 템플릿을 쓴다. 외부 기여자가 읽을 가능성을 고려한 기본값이다. 어떤 신호로 골랐는지는 최종 보고에 한 줄로 남긴다.
+한국어 대상 저장소를 늘리려면 위 목록에 한 줄을 추가한다. 어떤 템플릿을 왜 골랐는지는 최종 보고에 한 줄로 남긴다.
 
 선택한 템플릿 파일만 읽는다. 둘 다 읽을 필요는 없다.
 
@@ -71,6 +69,6 @@ argument-hint: "[base 브랜치] [--draft] [--lang en|ko]"
 
 - PR URL
 - base ← head 브랜치
-- 사용한 템플릿(저장소 자체 / 영문 / 한국어)과 그렇게 고른 근거 한 줄
+- 사용한 템플릿(저장소 자체 / 영문 / 한국어)과 그렇게 고른 근거 한 줄(식별된 저장소 이름 포함)
 - 포함된 커밋 수와 변경 요지
 - 주의사항(미커밋 변경, 테스트 미실행 등)
