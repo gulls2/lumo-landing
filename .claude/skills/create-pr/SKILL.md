@@ -1,6 +1,6 @@
 ---
 name: create-pr
-description: 현재 브랜치의 변경사항을 분석해 GitHub Pull Request를 생성한다. 현재 프로젝트(lumo-landing)는 한국어, 그 외 프로젝트는 영문 PR 템플릿을 사용한다. "PR 만들어줘", "PR 생성", "풀리퀘스트 올려줘", "pull request 열어줘", "create a PR" 처럼 PR 생성을 요청하면 반드시 이 스킬을 사용한다. 커밋 직후 "이제 올려줘"처럼 PR을 암시하는 요청에도 사용한다.
+description: 현재 브랜치의 변경사항을 분석해 GitHub Pull Request를 생성한다. gulls2 소유 저장소는 한국어, 그 외 소유자의 저장소는 영문 PR 템플릿을 사용한다. "PR 만들어줘", "PR 생성", "풀리퀘스트 올려줘", "pull request 열어줘", "create a PR" 처럼 PR 생성을 요청하면 반드시 이 스킬을 사용한다. 커밋 직후 "이제 올려줘"처럼 PR을 암시하는 요청에도 사용한다.
 context: fork
 argument-hint: "[base 브랜치] [--repo 경로] [--draft] [--lang en|ko]"
 ---
@@ -35,15 +35,16 @@ argument-hint: "[base 브랜치] [--repo 경로] [--draft] [--lang en|ko]"
 
 **저장소 자체 템플릿이 최우선이다.** `.github/pull_request_template.md`, `.github/PULL_REQUEST_TEMPLATE.md`, `docs/pull_request_template.md`, 루트의 `pull_request_template.md`가 있으면 그것을 그대로 채운다. 이 경우 아래 두 템플릿은 쓰지 않는다. 팀이 정한 형식을 어기면 CI나 리뷰 규칙과 충돌할 수 있기 때문이다.
 
-자체 템플릿이 없으면 언어를 정한다. 규칙은 단순하다: **현재 프로젝트는 한국어, 그 외 모든 프로젝트는 영어.**
+자체 템플릿이 없으면 언어를 정한다. 규칙은 단순하다: **`gulls2` 소유 저장소는 한국어, 그 외 소유자의 저장소는 영어.** 직접 만든 프로젝트는 한국어로, 외부(해외 오픈소스 등)에 기여하는 PR은 영어로 쓴다.
 
 - `--lang en|ko` 인자가 있으면 그대로 따른다.
-- 인자가 없으면 `gh repo view --json nameWithOwner -q .nameWithOwner`(실패하면 `git remote get-url origin`)로 저장소를 식별한다.
-  - `gulls2/lumo-landing` → 한국어: `references/template-ko.md`
-  - 그 외 모든 저장소 → 영어: `references/template-en.md`
+- 인자가 없으면 `gh repo view --json nameWithOwner -q .nameWithOwner`(실패하면 `git remote get-url origin`)로 저장소를 식별하고 소유자를 본다.
+  - 소유자가 `gulls2` → 한국어: `references/template-ko.md`
+  - 그 외 소유자 → 영어: `references/template-en.md`
 - 저장소를 식별할 수 없으면 영어를 쓴다.
+- fork 저장소라도 PR 대상(upstream)이 다른 소유자의 저장소이면 upstream 기준으로 영어를 쓴다.
 
-한국어 대상 저장소를 늘리려면 위 목록에 한 줄을 추가한다. 어떤 템플릿을 왜 골랐는지는 최종 보고에 한 줄로 남긴다.
+한국어로 쓸 소유자를 늘리려면 위 규칙의 소유자 이름을 추가한다. 어떤 템플릿을 왜 골랐는지는 최종 보고에 한 줄로 남긴다.
 
 선택한 템플릿 파일만 읽는다. 둘 다 읽을 필요는 없다.
 
